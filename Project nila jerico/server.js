@@ -15,8 +15,6 @@ app.use(express.json());
 
 // Email transporter (configure with your SMTP settings)
 // ✅ REAL GMAIL SMTP (APP PASSWORD)
-const nodemailer = require("nodemailer");
-
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
@@ -25,18 +23,8 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  tls: {
-    rejectUnauthorized: false,
-  },
 });
 
-transporter.verify((error, success) => {
-    if (error) {
-        console.warn('⚠️ Mailer configuration warning:', error.message || error);
-    } else {
-        console.log('✅ Mailer is ready to send messages');
-    }
-});
 
 // Temporary storage for reset codes (in production, use database)
 const resetCodes = {};
@@ -251,9 +239,10 @@ app.get(/^\/(?!api\/).*$/, (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-    console.log(`🚀 Server: http://localhost:${PORT}`);
-    console.log(`📁 DB: ${DB_FILE}`);
+  console.log("🚀 Server running on port " + PORT);
 });
 
 console.log("EMAIL_USER:", process.env.EMAIL_USER);
