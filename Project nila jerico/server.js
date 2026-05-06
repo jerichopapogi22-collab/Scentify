@@ -7,7 +7,6 @@ const path = require("path");
 const nodemailer = require("nodemailer");
 
 const app = express();
-const PORT = 3000;
 const DB_FILE = path.join(__dirname, "database.json");
 
 app.use(cors());
