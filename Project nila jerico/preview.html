@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scentify - Desktop Preview</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #fafaf9;
+            color: #111827;
+        }
+        header {
+            background: #ffffff;
+            padding: 14px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+        }
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #d4af37;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .logo-text h2 {
+            color: #d4af37;
+            font-size: 18px;
+            margin: 0;
+        }
+        .logo-text p {
+            color: #6b7280;
+            font-size: 11px;
+            margin: 0;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        nav {
+            display: flex;
+            gap: 40px;
+        }
+        nav a {
+            color: #6b7280;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        nav a:hover {
+            color: #d4af37;
+        }
+        .header-icons {
+            display: flex;
+            gap: 20px;
+        }
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: #f3f4f6;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+        .icon-btn:hover {
+            background: #e5e7eb;
+            color: #d4af37;
+        }
+        main {
+            margin-top: 80px;
+            padding: 0 40px;
+        }
+        .hero-section {
+            background: #ffffff;
+            border-radius: 28px;
+            padding: 48px 40px;
+            margin: 32px auto;
+            max-width: 1000px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+            border: 1px solid rgba(229,231,235,0.6);
+        }
+        .hero-logo {
+            display: inline-flex;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: 3px solid rgba(212,175,55,0.35);
+            background: #ffffff;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            box-shadow: 0 12px 32px rgba(212,175,55,0.15);
+            font-size: 60px;
+        }
+        .hero-section h1 {
+            font-size: 42px;
+            color: #d4af37;
+            margin: 0 0 12px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .hero-section p {
+            color: #6b7280;
+            font-size: 16px;
+            margin: 0;
+            font-weight: 400;
+        }
+        .search-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            margin: 32px auto;
+            max-width: 1000px;
+        }
+        .search-box {
+            position: relative;
+            width: 100%;
+            max-width: 760px;
+        }
+        #searchInput {
+            width: 100%;
+            padding: 18px 66px 18px 56px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 999px;
+            outline: none;
+            font-size: 16px;
+            color: #1f2937;
+            background: #ffffff;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+        #searchInput:focus {
+            border-color: #d4af37;
+            box-shadow: 0 12px 36px rgba(212, 175, 55, 0.15);
+        }
+        .search-icon {
+            position: absolute;
+            left: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 20px;
+        }
+        .category-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        .category-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #6b5b33;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .category-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .category-buttons button {
+            background: #ffffff;
+            color: #6b7280;
+            border: 1.5px solid #e5e7eb;
+            padding: 13px 22px;
+            border-radius: 999px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            transition: all 0.25s ease;
+        }
+        .category-buttons button:hover {
+            background: #f9f7f4;
+            border-color: #d4af37;
+            color: #d4af37;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.12);
+        }
+        .category-buttons button.active {
+            background: #d4af37;
+            color: #ffffff;
+            border-color: #d4af37;
+            box-shadow: 0 8px 24px rgba(212, 175, 55, 0.28);
+            transform: translateY(-1px);
+        }
+        .section-title {
+            text-align: center;
+            font-size: 24px;
+            color: #d4af37;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 48px 0 32px;
+        }
+        .section-title::before,
+        .section-title::after {
+            content: '✦';
+            margin: 0 12px;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 28px;
+            max-width: 1400px;
+            margin: 0 auto 48px;
+        }
+        .card {
+            width: 100%;
+            margin: 0;
+            padding: 18px;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+            border: 1px solid #f3f4f6;
+            background: #ffffff;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+            border-color: #e5e7eb;
+        }
+        .card img {
+            height: 220px;
+            width: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f5f5f5 0%, #ececec 100%);
+            margin-bottom: 14px;
+            transition: transform 0.3s ease;
+        }
+        .card:hover img {
+            transform: scale(1.02);
+        }
+        .card h3 {
+            font-size: 15px;
+            color: #111827;
+            margin: 0 0 8px;
+            font-weight: 600;
+        }
+        .card p {
+            font-size: 13px;
+            color: #6b7280;
+            margin: 0 0 12px;
+        }
+        .card .price {
+            color: #d4af37;
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .card button {
+            width: 100%;
+            background: linear-gradient(135deg, #d4af37 0%, #e5c158 100%);
+            color: #ffffff;
+            border: none;
+            padding: 13px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-size: 14px;
+            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.18);
+        }
+        .card button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.28);
+        }
+        .card button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-logo">
+            <div class="logo-circle">🧴</div>
+            <div class="logo-text">
+                <h2>Scentify</h2>
+                <p>Perfume Shop</p>
+            </div>
+        </div>
+        <nav>
+            <a href="#">Home</a>
+            <a href="#">Shop</a>
+            <a href="#">About</a>
+            <a href="#">Contact</a>
+        </nav>
+        <div class="header-icons">
+            <button class="icon-btn"><i class="fas fa-shopping-cart"></i></button>
+            <button class="icon-btn"><i class="fas fa-user"></i></button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-logo">🧴</div>
+            <h1>Scentify Perfume Shop</h1>
+            <p>Discover your perfect scent</p>
+        </section>
+
+        <!-- Search & Categories -->
+        <div class="search-container">
+            <div class="search-box">
+                <span class="search-icon">🔎</span>
+                <input type="text" id="searchInput" placeholder="Search perfumes...">
+            </div>
+            <section class="category-section">
+                <span class="category-label">Shop by Category:</span>
+                <div class="category-buttons">
+                    <button class="active">All</button>
+                    <button>Kids</button>
+                    <button>Men</button>
+                    <button>Women</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- Best Sellers -->
+        <h2 class="section-title">Best Sellers</h2>
+        <div class="product-grid">
+            <div class="card">
+                <img src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=400&q=80" alt="Luxury Gold">
+                <h3>Luxury Gold</h3>
+                <p>Premium fragrance</p>
+                <div class="price">₱499</div>
+                <button>Add to Cart</button>
+            </div>
+            <div class="card">
+                <img src="https://fimgs.net/mdimg/perfume-thumbs/375x500.110992.jpg" alt="Sweet Candy">
+                <h3>Sweet Candy</h3>
+                <p>Sweet fragrance</p>
+                <div class="price">₱299</div>
+                <button>Add to Cart</button>
+            </div>
+            <div class="card">
+                <img src="https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcRL1fVcnX2KcVq9L-M_R_9enQ8Snw7e1UgQCInWml_QfXXfkRFpAD17gnTMaDBJiWFkFSmZb8kavXxqxV_f5-zQY3DJImtyTIu_ldJHhk21N2WPZK4zDHvKfOY" alt="Blue Ocean">
+                <h3>Blue Ocean</h3>
+                <p>Fresh fragrance</p>
+                <div class="price">₱999</div>
+                <button>Add to Cart</button>
+            </div>
+            <div class="card">
+                <img src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=400&q=80" alt="Polo Blue">
+                <h3>Polo Blue</h3>
+                <p>Classic fragrance</p>
+                <div class="price">₱1,199</div>
+                <button>Add to Cart</button>
+            </div>
+        </div>
+
+        <!-- Products Section -->
+        <h2 class="section-title">All Products</h2>
+        <div class="product-grid">
+            <div class="card">
+                <img src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=400&q=80" alt="Product 1">
+                <h3>Elegant Rose</h3>
+                <p>Romantic fragrance</p>
+                <div class="price">₱399</div>
+                <button>Add to Cart</button>
+            </div>
+            <div class="card">
+                <img src="https://fimgs.net/mdimg/perfume-thumbs/375x500.110992.jpg" alt="Product 2">
+                <h3>Forest Dew</h3>
+                <p>Natural fragrance</p>
+                <div class="price">₱399</div>
+                <button>Add to Cart</button>
+            </div>
+            <div class="card">
+                <img src="https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcRL1fVcnX2KcVq9L-M_R_9enQ8Snw7e1UgQCInWml_QfXXfkRFpAD17gnTMaDBJiWFkFSmZb8kavXxqxV_f5-zQY3DJImtyTIu_ldJHhk21N2WPZK4zDHvKfOY" alt="Product 3">
+                <h3>Strong Edge</h3>
+                <p>Bold fragrance</p>
+                <div class="price">₱399</div>
+                <button>Add to Cart</button>
+            </div>
+            <div class="card">
+                <img src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=400&q=80" alt="Product 4">
+                <h3>Berry Lush</h3>
+                <p>Fruity fragrance</p>
+                <div class="price">₱399</div>
+                <button>Add to Cart</button>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
