@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { Mail, AlertCircle, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
-const API_URL = "http://localhost:3000";
+const API_URL = "https://scentify-jpex.onrender.com";
 
 export function ForgotPassword() {
   const [currentStage, setCurrentStage] = useState("email");

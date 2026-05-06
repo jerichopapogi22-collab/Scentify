@@ -4938,23 +4938,24 @@ function login(){
         return;
     }
     
-    fetch("http://localhost:3000/login", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({email, password})
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.id){
-            handleAuthenticatedUser(data);
-        } else {
-            const passError = document.getElementById('loginPasswordError');
-            const passwordInput = document.getElementById('loginPassword');
-            passError.textContent = data.message === 'Incorrect Password' ? 'Incorrect Password' : data.message || 'Login failed.';
-            passError.style.display = 'block';
-            passwordInput.classList.add('input-error');
-        }
-    });
+    // Use local storage based auth instead of server
+    const normalizedEmail = email.toLowerCase();
+    const users = JSON.parse(localStorage.getItem('scentify-users') || '[]');
+    const user = users.find(item => item.email === normalizedEmail && item.password === password);
+    
+    if(user){
+        handleAuthenticatedUser({
+            id: user.id,
+            name: user.name,
+            email: user.email
+        });
+    } else {
+        const passError = document.getElementById('loginPasswordError');
+        const passwordInput = document.getElementById('loginPassword');
+        passError.textContent = 'Invalid email or password.';
+        passError.style.display = 'block';
+        passwordInput.classList.add('input-error');
+    }
 }
 
 function signup(){
@@ -4985,39 +4986,43 @@ function signup(){
         return;
     }
     
-    fetch("http://localhost:3000/signup", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({name, email, password})
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.id) {
-            // Clear all signup form fields
-            document.getElementById("signupFirstName").value = '';
-            document.getElementById("signupLastName").value = '';
-            document.getElementById("signupEmail").value = '';
-            document.getElementById("signupPassword").value = '';
-            document.getElementById("signupConfirmPassword").value = '';
-            document.getElementById("termsCheckbox").checked = false;
-            // Clear any validation errors
-            const helpBox = document.getElementById('passwordHelp');
-            if(helpBox) helpBox.style.display = 'none';
-            const confirmError = document.getElementById('confirmPasswordError');
-            if(confirmError) confirmError.style.display = 'none';
-            const termsError = document.getElementById('termsError');
-            if(termsError) termsError.style.display = 'none';
-            // Redirect to sign in with a success message
-            showLogin('Account created successfully. Please sign in to continue.');
-            document.getElementById('loginPassword').value = '';
-        } else {
-            showToast(data.message || "Signup failed. Please try again.", 'error');
-        }
-    })
-    .catch(err => {
-        console.error("Signup error:", err);
-        showToast("An error occurred. Please try again.", 'error');
-    });
+    // Use local storage based auth instead of server
+    const normalizedEmail = email.toLowerCase();
+    const users = JSON.parse(localStorage.getItem('scentify-users') || '[]');
+    
+    if(users.some(user => user.email === normalizedEmail)) {
+        showToast('This email is already registered.', 'error');
+        return;
+    }
+    
+    const newUser = {
+        id: crypto.randomUUID(),
+        name: name,
+        email: normalizedEmail,
+        password: password
+    };
+    
+    users.push(newUser);
+    localStorage.setItem('scentify-users', JSON.stringify(users));
+    
+    // Clear all signup form fields
+    document.getElementById("signupFirstName").value = '';
+    document.getElementById("signupLastName").value = '';
+    document.getElementById("signupEmail").value = '';
+    document.getElementById("signupPassword").value = '';
+    document.getElementById("signupConfirmPassword").value = '';
+    document.getElementById("termsCheckbox").checked = false;
+    // Clear any validation errors
+    const helpBox = document.getElementById('passwordHelp');
+    if(helpBox) helpBox.style.display = 'none';
+    const confirmError = document.getElementById('confirmPasswordError');
+    if(confirmError) confirmError.style.display = 'none';
+    const termsError2 = document.getElementById('termsError');
+    if(termsError2) termsError2.style.display = 'none';
+    // Redirect to sign in with a success message
+    showLogin('Account created successfully. Please sign in to continue.');
+    document.getElementById('loginPassword').value = '';
+    showToast('Account created successfully!', 'success');
 }
 
 // === TERMS AND CONDITIONS MODAL ===
@@ -5051,35 +5056,20 @@ document.addEventListener('DOMContentLoaded', function() {
 // === CART ===
 function loadCart(){
     if(!currentUser) return;
-    fetch(`http://localhost:3000/cart/${currentUser.id}`)
-    .then(res => res.json())
-    .then(data => {
-        cart = data.map(i => {
-            const normalizedName = i.product_name?.trim();
-            return {
-                id: i.id, // Include the server ID for removal
-                productId: i.product_name, // Add productId for ES6 module compatibility
-                name: i.product_name,
-                price: Number(i.price),
-                quantity: Number(i.quantity) || 1,
-                image: i.image || productImages[normalizedName] || 'https://images.unsplash.com/photo-1542831371-d531d36971e6?auto=format&fit=crop&w=300&q=80',
-                selected: false
-            };
-        });
-        // Update ES6 module cart state
-        if (window.state) {
-            window.state.cart = cart.map(item => ({
-                id: item.id, // Include ID
-                productId: item.productId,
-                name: item.name,
-                price: item.price,
-                image: item.image,
-                quantity: item.quantity,
-                discount: 0 // Default discount
-            }));
-        }
-        renderCart();
-    }).catch(err => console.error('Cart load error:', err));
+    // Use local storage based cart instead of server
+    const cart = JSON.parse(localStorage.getItem(`scentify-cart-${currentUser.id}`) || '[]');
+    if (window.state) {
+        window.state.cart = cart.map(item => ({
+            id: item.id || item.productId,
+            productId: item.productId || item.name,
+            name: item.name,
+            price: item.price,
+            image: item.image,
+            quantity: item.quantity,
+            discount: item.discount || 0
+        }));
+    }
+    renderCart();
 }
 
 function showToast(message, type = 'success') {
@@ -5106,7 +5096,7 @@ function addToCart(name, price, image){
     }
     const normalizedName = name.trim();
     const productImage = image || productImages[normalizedName] || 'https://images.unsplash.com/photo-1542831371-d531d36971e6?auto=format&fit=crop&w=300&q=80';
-    fetch("http://localhost:3000/add-to-cart", {
+    fetch("https://scentify-jpex.onrender.com/add-to-cart", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -5209,7 +5199,7 @@ function updateCartBadge(){
 function removeFromCart(index){
     const item = cart[index];
     if (item && item.id) {
-        fetch(`http://localhost:3000/cart/item/${item.id}`, { method: 'DELETE' })
+        fetch(`https://scentify-jpex.onrender.com/cart/item/${item.id}`, { method: 'DELETE' })
             .then(() => {
                 loadCart();
             })
@@ -5230,7 +5220,7 @@ function removeSelectedItems(){
 
     const deleteRequests = selectedItems.map((item, index) => {
         if (item.id) {
-            return fetch(`http://localhost:3000/cart/item/${item.id}`, { method: 'DELETE' }).catch(() => null);
+            return fetch(`https://scentify-jpex.onrender.com/cart/item/${item.id}`, { method: 'DELETE' }).catch(() => null);
         }
         return Promise.resolve();
     });
@@ -5423,7 +5413,7 @@ function placeOrder(){
 
     const deleteRequests = pendingOrder.map(item => {
         if (!item.id) return Promise.resolve();
-        return fetch(`http://localhost:3000/cart/item/${item.id}`, { method: 'DELETE' });
+        return fetch(`https://scentify-jpex.onrender.com/cart/item/${item.id}`, { method: 'DELETE' });
     });
 
     Promise.all(deleteRequests)
@@ -6045,7 +6035,7 @@ function editAddress(){
 function logout(){
     if (currentUser) {
         // Clear server cart
-        fetch(`http://localhost:3000/cart/${currentUser.id}`, {
+        fetch(`https://scentify-jpex.onrender.com/cart/${currentUser.id}`, {
             method: "DELETE"
         }).catch(err => console.log("Logout cart clear failed"));
     }
@@ -6182,6 +6172,7 @@ document.addEventListener('DOMContentLoaded', function(){
     ];
 
     function blockShortcut(e) {
+        if (!e.key) return;
         if (e.key === "Escape") {
             closeModal();
             return;
@@ -6383,3 +6374,4 @@ function resetPassword(){
 
 </body>
 </html>
+

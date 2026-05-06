@@ -42,7 +42,7 @@ export const removeFromCart = productId => {
   const item = state.cart.find(item => item.productId === productId);
   if (item && item.id) {
     // Call server to remove
-    fetch(`http://localhost:3000/cart/item/${item.id}`, {
+    fetch(`https://scentify-jpex.onrender.com/cart/item/${item.id}`, {
       method: 'DELETE'
     })
     .then(() => {
@@ -68,3 +68,4 @@ export const clearCart = () => {
 export const getCartCount = () => state.cart.reduce((sum, item) => sum + item.quantity, 0);
 
 export const getCartTotal = () => state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
