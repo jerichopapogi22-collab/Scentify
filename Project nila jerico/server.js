@@ -1,4 +1,5 @@
 ﻿require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -14,12 +15,19 @@ app.use(express.json());
 
 // Email transporter (configure with your SMTP settings)
 // ✅ REAL GMAIL SMTP (APP PASSWORD)
+const nodemailer = require("nodemailer");
+
 const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // VERY IMPORTANT
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
 
 transporter.verify((error, success) => {
@@ -247,3 +255,6 @@ app.listen(PORT, () => {
     console.log(`🚀 Server: http://localhost:${PORT}`);
     console.log(`📁 DB: ${DB_FILE}`);
 });
+
+console.log("EMAIL_USER:", process.env.EMAIL_USER);
+console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Loaded ✅" : "Missing ❌");
