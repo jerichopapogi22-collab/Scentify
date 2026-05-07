@@ -12,18 +12,28 @@ const DB_FILE = path.join(__dirname, "database.json");
 app.use(cors());
 app.use(express.json());
 
-// Email transporter (configure with your SMTP settings)
-// ✅ REAL GMAIL SMTP (APP PASSWORD)
+// Email transporter (configure with your SMTP provider settings)
+const EMAIL_PROVIDER = (process.env.EMAIL_PROVIDER || "brevo").toLowerCase();
+const EMAIL_HOST = process.env.EMAIL_HOST || (EMAIL_PROVIDER === "gmail" ? "smtp.gmail.com" : "smtp-relay.brevo.com");
+const EMAIL_PORT = parseInt(process.env.EMAIL_PORT, 10) || (EMAIL_PROVIDER === "gmail" ? 465 : 587);
+const EMAIL_SECURE = process.env.EMAIL_SECURE ? process.env.EMAIL_SECURE === "true" : (EMAIL_PROVIDER === "gmail");
+const EMAIL_FROM = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+
 const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false, // IMPORTANT
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: EMAIL_SECURE,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        rejectUnauthorized: false
+    }
+});
+
+transporter.verify((error, success) => {
+    if (error) {
+        console.error("SMTP transporter verification failed:", error);
+    } else {
+        console.log("SMTP transporter verified:", EMAIL_PROVIDER.toUpperCase(), EMAIL_HOST, EMAIL_PORT, EMAIL_SECURE ? "secure" : "non-secure");
     }
 });
 
@@ -181,21 +191,21 @@ app.post('/forgot-password', (req, res) => {
     resetCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 }; // 10 minutes
 
     const mailOptions = {
-    from: process.env.EMAIL_FROM || `"Scentify Support" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: "🔐 Scentify Password Reset Code",
-    html: `
-        <div style="font-family:Arial;padding:20px">
-            <h2>Password Reset Request</h2>
-            <p>Hello <b>${user.name}</b>,</p>
-            <p>Your reset code is:</p>
-            <h1 style="color:#e91e63">${code}</h1>
-            <p>This code expires in <b>10 minutes</b>.</p>
-            <hr/>
-            <small>If you didn't request this, ignore this email.</small>
-        </div>
-    `
-};
+        from: `"Scentify Support" <${EMAIL_FROM}>`,
+        to: email,
+        subject: "🔐 Scentify Password Reset Code",
+        html: `
+            <div style="font-family:Arial;padding:20px">
+                <h2>Password Reset Request</h2>
+                <p>Hello <b>${user.name}</b>,</p>
+                <p>Your reset code is:</p>
+                <h1 style="color:#e91e63">${code}</h1>
+                <p>This code expires in <b>10 minutes</b>.</p>
+                <hr/>
+                <small>If you didn't request this, ignore this email.</small>
+            </div>
+        `
+    };
 
     transporter.sendMail(mailOptions, (mailError, info) => {
         if (mailError) {
@@ -246,5 +256,9 @@ app.listen(PORT, () => {
   console.log("🚀 Server running on port " + PORT);
 });
 
+console.log("EMAIL_PROVIDER:", EMAIL_PROVIDER);
+console.log("EMAIL_HOST:", EMAIL_HOST);
+console.log("EMAIL_PORT:", EMAIL_PORT);
+console.log("EMAIL_SECURE:", EMAIL_SECURE);
 console.log("EMAIL_USER:", process.env.EMAIL_USER);
 console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Loaded ✅" : "Missing ❌");

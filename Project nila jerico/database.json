@@ -1,58 +1,7 @@
 {
   "users": [
     {
-      "id": 1,
-      "name": "ghgh",
-      "email": "gh@gmail.com",
-      "password": "Css@12345"
-    },
-    {
-      "id": 2,
-      "name": "POGI",
-      "email": "pogi@gmail.com",
-      "password": "Css@123456"
-    },
-    {
-      "id": 3,
-      "name": "robie baldemor",
-      "email": "Ah@gmail.com",
-      "password": "Css@12345"
-    },
-    {
-      "id": 4,
-      "name": "Robie Baldemor",
-      "email": "Ha@gmail.com",
-      "password": "Css@12345"
-    },
-    {
-      "id": 5,
-      "name": "Robie joy",
-      "email": "la@gmail.com",
-      "password": "Css@12345"
-    },
-    {
-      "id": 6,
-      "name": "Robie Baldemor",
-      "email": "ka@gmail.com",
-      "password": "Css@12345"
-    },
-    {
-      "id": 7,
-      "name": "JERICHO MEDIONA",
-      "email": "jerichopapogi@gmail.com",
-      "password": "cSS@12345"
-    },
-    {
-      "id": 8,
-      "name": "Jericho POGI MEDIONA",
-      "email": "jerichopapogi22@gmail.com",
-      "password": "Css@123456"
-    },
-    {
-      "id": 9,
-      "name": "Charls Mediona",
-      "email": "charlsmediona@gmail.com",
-      "password": "Css@12345"
+      
     }
   ],
   "cart": [
