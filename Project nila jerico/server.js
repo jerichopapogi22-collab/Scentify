@@ -44,13 +44,13 @@ async function sendEmail(to, subject, htmlContent) {
     }
 }
 
-transporter.verify((error, success) => {
+/*transporter.verify((error, success) => {
     if (error) {
         console.error("SMTP transporter verification failed:", error);
     } else {
         console.log("SMTP transporter verified:", EMAIL_PROVIDER.toUpperCase(), EMAIL_HOST, EMAIL_PORT, EMAIL_SECURE ? "secure" : "non-secure");
     }
-});
+});*/
 
 // Temporary storage for reset codes (in production, use database)
 const resetCodes = {};
