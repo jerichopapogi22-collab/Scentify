@@ -19,15 +19,30 @@ const EMAIL_PORT = parseInt(process.env.EMAIL_PORT, 10) || (EMAIL_PROVIDER === "
 const EMAIL_SECURE = process.env.EMAIL_SECURE ? process.env.EMAIL_SECURE === "true" : (EMAIL_PROVIDER === "gmail");
 const EMAIL_FROM = process.env.EMAIL_FROM || process.env.EMAIL_USER;
 
-const transporter = nodemailer.createTransport({
-    host: EMAIL_HOST,
-    port: EMAIL_PORT,
-    secure: EMAIL_SECURE,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+const SibApiV3Sdk = require('sib-api-v3-sdk');
+
+let defaultClient = SibApiV3Sdk.ApiClient.instance;
+let apiKey = defaultClient.authentications['api-key'];
+apiKey.apiKey = process.env.BREVO_API_KEY;
+
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+async function sendEmail(to, subject, htmlContent) {
+    try {
+        const sendSmtpEmail = {
+            to: [{ email: to }],
+            sender: { email: "your_verified_sender@email.com", name: "Scentify" },
+            subject: subject,
+            htmlContent: htmlContent
+        };
+
+        const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+        return response;
+    } catch (error) {
+        console.error("Email error:", error);
+        throw error;
     }
-});
+}
 
 transporter.verify((error, success) => {
     if (error) {
