@@ -1,10 +1,10 @@
-﻿const mongoose = require("mongoose");
+﻿require("dotenv").config();
+
+const mongoose = require("mongoose");
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.log("❌ MongoDB error:", err));
-  
-require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
