@@ -1,52 +1,67 @@
 ﻿require("dotenv").config();
 
-const mongoose = require("mongoose");
-
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => console.log("❌ MongoDB error:", err));
-
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const mongoose = require("mongoose");
 const { Resend } = require("resend");
 
+// =====================
+// INIT
+// =====================
 const app = express();
 const DB_FILE = path.join(__dirname, "database.json");
 
 // =====================
+// ENV CHECK (IMPORTANT)
+// =====================
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI missing");
+}
+
+if (!process.env.RESEND_API_KEY) {
+  console.error("❌ RESEND_API_KEY missing");
+}
+
+// =====================
 // MIDDLEWARE
 // =====================
-app.use(cors({
-  origin: "*"
-}));
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // =====================
-// EMAIL (RESEND ONLY)
+// MONGODB
+// =====================
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.log("❌ MongoDB error:", err));
+
+// =====================
+// EMAIL SETUP (RESEND)
 // =====================
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // =====================
-// RESET CODES STORAGE
+// RESET CODES MEMORY
 // =====================
 const resetCodes = {};
 
 // =====================
-// SAFE HELPERS
+// HELPERS
 // =====================
 const safeEmail = (email) =>
   typeof email === "string" ? email.toLowerCase().trim() : "";
 
 const safeFindUser = (db, email) => {
   return db.users.find(
-    (u) => u?.email && typeof u.email === "string" && u.email.toLowerCase() === email
+    (u) => u?.email && u.email.toLowerCase() === email
   );
 };
 
 // =====================
-// DATABASE
+// DATABASE FILE (JSON)
 // =====================
 function readDB() {
   try {
@@ -81,7 +96,7 @@ app.use("/icons", express.static(path.join(__dirname, "public", "icons")));
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 // =====================
-// AUTH
+// AUTH - SIGNUP
 // =====================
 app.post("/signup", (req, res) => {
   const { name, email, password } = req.body;
@@ -111,6 +126,9 @@ app.post("/signup", (req, res) => {
   res.json(safeUser);
 });
 
+// =====================
+// LOGIN
+// =====================
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
   const db = readDB();
@@ -162,19 +180,18 @@ app.get("/cart/:id", (req, res) => {
 });
 
 // =====================
-// FORGOT PASSWORD (SAFE VERSION)
+// FORGOT PASSWORD (FIXED)
 // =====================
 app.post("/forgot-password", async (req, res) => {
   const db = readDB();
-
   const email = safeEmail(req.body?.email);
+
   if (!email) {
     return res.status(400).json({ message: "Invalid email" });
   }
 
   const user = safeFindUser(db, email);
 
-  // security response (always same message)
   if (!user) {
     return res.json({ message: "If account exists, code sent." });
   }
@@ -187,17 +204,31 @@ app.post("/forgot-password", async (req, res) => {
   };
 
   try {
-    await resend.emails.send({
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    const result = await resend.emails.send({
       from: "Scentify <onboarding@resend.dev>",
       to: email,
       subject: "Password Reset Code",
-      html: `<h1>${code}</h1><p>Expires in 10 minutes</p>`,
+      html: `
+        <div style="font-family:Arial;text-align:center;">
+          <h2>Your Reset Code</h2>
+          <h1 style="letter-spacing:5px;">${code}</h1>
+          <p>Valid for 10 minutes</p>
+        </div>
+      `,
     });
 
+    console.log("✅ Email sent:", result);
+
     res.json({ message: "Reset code sent!" });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Email failed." });
+    console.error("❌ EMAIL ERROR:", err);
+    res.status(500).json({
+      message: "Email failed",
+      error: err.message,
+    });
   }
 });
 
