@@ -1,5 +1,7 @@
 ﻿    require("dotenv").config();
 
+    const { Resend } = require("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const express = require("express");
     const cors = require("cors");
     const fs = require("fs");
@@ -136,31 +138,50 @@
     const resetCodes = {};
 
     app.post('/forgot-password', async (req, res) => {
-        const email = (req.body.email || '').toLowerCase().trim();
-        const db = readDB();
-        const user = db.users.find(u => u.email.toLowerCase() === email);
+    const email = (req.body.email || '').toLowerCase().trim();
 
-        if (!user) return res.json({ message: "If account exists, code sent." });
+    const db = readDB();
+    const user = db.users.find(u => u.email.toLowerCase() === email);
 
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        resetCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 };
+    // security response (same behavior)
+    if (!user) {
+        return res.json({ message: "If account exists, code sent." });
+    }
 
-        const mailOptions = {
-            from: `"Scentify Support" <${process.env.EMAIL_USER}>`,
+    // generate code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    resetCodes[email] = {
+        code,
+        expires: Date.now() + 10 * 60 * 1000
+    };
+
+    try {
+        // SEND EMAIL USING RESEND
+        await resend.emails.send({
+            from: "Scentify <onboarding@resend.dev>",
             to: email,
             subject: "Scentify Password Reset Code",
-            html: `<h2>Your reset code:</h2><h1>${code}</h1><p>Expires in 10 minutes.</p>`
-        };
+            html: `
+                <div style="font-family:Arial;padding:20px">
+                    <h2>Password Reset Code</h2>
+                    <p>Hello <b>${user.name}</b>,</p>
+                    <h1 style="color:#e91e63">${code}</h1>
+                    <p>This code expires in 10 minutes.</p>
+                    <hr/>
+                    <small>If you didn't request this, ignore this email.</small>
+                </div>
+            `
+        });
 
-        try {
-            await transporter.sendMail(mailOptions);
-            console.log("📩 Reset email sent:", email);
-            res.json({ message: "Reset code sent!" });
-        } catch (err) {
-            console.error(err);
-            res.status(500).json({ message: "Email failed." });
-        }
-    });
+        console.log("📩 Reset email sent via Resend:", email);
+        res.json({ message: "Reset code sent!" });
+
+    } catch (err) {
+        console.error("Resend error:", err);
+        res.status(500).json({ message: "Email failed." });
+    }
+});
 
     app.post('/reset-password', (req, res) => {
         const { email, code, newPassword } = req.body;
