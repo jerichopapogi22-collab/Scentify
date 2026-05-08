@@ -18,7 +18,9 @@ const DB_FILE = path.join(__dirname, "database.json");
 // =====================
 // MIDDLEWARE
 // =====================
-app.use(cors());
+app.use(cors({
+  origin: "*"
+}));
 app.use(express.json());
 
 // =====================
