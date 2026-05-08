@@ -2,26 +2,30 @@
 
 const express = require("express");
 const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
 const mongoose = require("mongoose");
 const { Resend } = require("resend");
+const bcrypt = require("bcrypt");
+const path = require("path");
 
 // =====================
 // INIT
 // =====================
 const app = express();
-const DB_FILE = path.join(__dirname, "database.json");
+
+const User = require("./models/User");
+const Cart = require("./models/Cart");
 
 // =====================
-// ENV CHECK (IMPORTANT)
+// ENV CHECK
 // =====================
 if (!process.env.MONGO_URI) {
   console.error("❌ MONGO_URI missing");
+  process.exit(1);
 }
 
 if (!process.env.RESEND_API_KEY) {
   console.error("❌ RESEND_API_KEY missing");
+  process.exit(1);
 }
 
 // =====================
@@ -31,20 +35,24 @@ app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // =====================
-// MONGODB
+// MONGODB CONNECTION
 // =====================
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => console.log("❌ MongoDB error:", err));
+  .catch((err) => {
+    console.error("❌ MongoDB error:", err.message);
+    process.exit(1);
+  });
 
 // =====================
-// EMAIL SETUP (RESEND)
+// EMAIL (RESEND)
 // =====================
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // =====================
-// RESET CODES MEMORY
+// RESET CODES (MEMORY)
+// ⚠️ note: mawawala pag restart (ok for dev)
 // =====================
 const resetCodes = {};
 
@@ -53,36 +61,6 @@ const resetCodes = {};
 // =====================
 const safeEmail = (email) =>
   typeof email === "string" ? email.toLowerCase().trim() : "";
-
-const safeFindUser = (db, email) => {
-  return db.users.find(
-    (u) => u?.email && u.email.toLowerCase() === email
-  );
-};
-
-// =====================
-// DATABASE FILE (JSON)
-// =====================
-function readDB() {
-  try {
-    if (!fs.existsSync(DB_FILE)) {
-      const defaultData = { users: [], cart: [] };
-      fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2));
-      return defaultData;
-    }
-    return JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
-  } catch {
-    return { users: [], cart: [] };
-  }
-}
-
-function writeDB(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-}
-
-function getNextId(arr) {
-  return arr.length ? Math.max(...arr.map((i) => i.id || 0)) + 1 : 1;
-}
 
 // =====================
 // STATIC FILES
@@ -96,117 +74,143 @@ app.use("/icons", express.static(path.join(__dirname, "public", "icons")));
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 // =====================
-// AUTH - SIGNUP
+// SIGNUP
 // =====================
-app.post("/signup", (req, res) => {
-  const { name, email, password } = req.body;
-  const db = readDB();
+app.post("/signup", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
 
-  const cleanEmail = safeEmail(email);
+    if (!email || !password) {
+      return res.status(400).json({ message: "Missing fields" });
+    }
 
-  if (!cleanEmail) {
-    return res.status(400).json({ message: "Invalid email" });
+    const cleanEmail = safeEmail(email);
+
+    const existing = await User.findOne({ email: cleanEmail });
+
+    if (existing) {
+      return res.status(400).json({ message: "Email already exists!" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      name,
+      email: cleanEmail,
+      password: hashedPassword,
+    });
+
+    const { password: _, ...safeUser } = user.toObject();
+
+    res.json(safeUser);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  if (db.users.find((u) => u.email === cleanEmail)) {
-    return res.status(400).json({ message: "Email already exists!" });
-  }
-
-  const newUser = {
-    id: getNextId(db.users),
-    name,
-    email: cleanEmail,
-    password,
-  };
-
-  db.users.push(newUser);
-  writeDB(db);
-
-  const { password: pw, ...safeUser } = newUser;
-  res.json(safeUser);
 });
 
 // =====================
 // LOGIN
 // =====================
-app.post("/login", (req, res) => {
-  const { email, password } = req.body;
-  const db = readDB();
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-  const cleanEmail = safeEmail(email);
-  const user = safeFindUser(db, cleanEmail);
+    const cleanEmail = safeEmail(email);
 
-  if (!user) return res.status(401).json({ message: "Invalid credentials!" });
-  if (user.password !== password)
-    return res.status(401).json({ message: "Incorrect Password" });
+    const user = await User.findOne({ email: cleanEmail });
 
-  const { password: pw, ...safeUser } = user;
-  res.json(safeUser);
-});
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials!" });
+    }
 
-// =====================
-// CART
-// =====================
-app.post("/add-to-cart", (req, res) => {
-  const { user_id, product_name, price, quantity, image } = req.body;
-  const db = readDB();
+    const isMatch = await bcrypt.compare(password, user.password);
 
-  const userId = parseInt(user_id);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Incorrect password" });
+    }
 
-  const existing = db.cart.find(
-    (i) => i.user_id === userId && i.product_name === product_name
-  );
+    const { password: _, ...safeUser } = user.toObject();
 
-  if (existing) {
-    existing.quantity = Math.min((existing.quantity || 0) + (quantity || 1), 9);
-  } else {
-    db.cart.push({
-      id: getNextId(db.cart),
-      user_id: userId,
-      product_name,
-      price,
-      quantity,
-      image,
-    });
+    res.json(safeUser);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  writeDB(db);
-  res.json({ message: "Added to cart" });
-});
-
-app.get("/cart/:id", (req, res) => {
-  const db = readDB();
-  res.json(db.cart.filter((i) => i.user_id == req.params.id));
 });
 
 // =====================
-// FORGOT PASSWORD (FIXED)
+// ADD TO CART
+// =====================
+app.post("/add-to-cart", async (req, res) => {
+  try {
+    const { user_id, product_name, price, quantity, image } = req.body;
+
+    if (!user_id || !product_name) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+
+    const qtyToAdd = Math.max(1, Number(quantity) || 1);
+
+    const existing = await Cart.findOne({
+      user_id,
+      product_name,
+    });
+
+    if (existing) {
+      existing.quantity = Math.min((existing.quantity || 0) + qtyToAdd, 9);
+      await existing.save();
+    } else {
+      await Cart.create({
+        user_id,
+        product_name,
+        price,
+        quantity: qtyToAdd,
+        image,
+      });
+    }
+
+    res.json({ message: "Added to cart" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// =====================
+// GET CART
+// =====================
+app.get("/cart/:id", async (req, res) => {
+  try {
+    const items = await Cart.find({ user_id: req.params.id });
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// =====================
+// FORGOT PASSWORD
 // =====================
 app.post("/forgot-password", async (req, res) => {
-  const db = readDB();
-  const email = safeEmail(req.body?.email);
-
-  if (!email) {
-    return res.status(400).json({ message: "Invalid email" });
-  }
-
-  const user = safeFindUser(db, email);
-
-  if (!user) {
-    return res.json({ message: "If account exists, code sent." });
-  }
-
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-  resetCodes[email] = {
-    code,
-    expires: Date.now() + 10 * 60 * 1000,
-  };
-
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const email = safeEmail(req.body?.email);
 
-    const result = await resend.emails.send({
+    if (!email) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.json({ message: "If account exists, code sent." });
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+
+    resetCodes[email] = {
+      code,
+      expires: Date.now() + 10 * 60 * 1000,
+    };
+
+    await resend.emails.send({
       from: "Scentify <onboarding@resend.dev>",
       to: email,
       subject: "Password Reset Code",
@@ -219,45 +223,45 @@ app.post("/forgot-password", async (req, res) => {
       `,
     });
 
-    console.log("✅ Email sent:", result);
-
     res.json({ message: "Reset code sent!" });
-
   } catch (err) {
-    console.error("❌ EMAIL ERROR:", err);
-    res.status(500).json({
-      message: "Email failed",
-      error: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 });
 
 // =====================
 // RESET PASSWORD
 // =====================
-app.post("/reset-password", (req, res) => {
-  const email = safeEmail(req.body?.email);
-  const { code, newPassword } = req.body;
+app.post("/reset-password", async (req, res) => {
+  try {
+    const email = safeEmail(req.body?.email);
+    const { code, newPassword } = req.body;
 
-  const reset = resetCodes[email];
+    const reset = resetCodes[email];
 
-  if (!reset || reset.code !== code || Date.now() > reset.expires) {
-    return res.status(400).json({ message: "Invalid/expired code" });
+    if (
+      !reset ||
+      reset.code !== String(code) ||
+      Date.now() > reset.expires
+    ) {
+      return res.status(400).json({ message: "Invalid/expired code" });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    delete resetCodes[email];
+
+    res.json({ message: "Password updated!" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  const db = readDB();
-  const user = safeFindUser(db, email);
-
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
-
-  user.password = newPassword;
-  writeDB(db);
-
-  delete resetCodes[email];
-
-  res.json({ message: "Password updated!" });
 });
 
 // =====================
