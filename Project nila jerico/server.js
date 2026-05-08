@@ -16,44 +16,56 @@ app.use(cors());
 app.use(express.json());
 
 // =====================
-// RESEND EMAIL SETUP
+// EMAIL (RESEND ONLY)
 // =====================
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // =====================
-// RESET CODE STORAGE
+// RESET CODES STORAGE
 // =====================
 const resetCodes = {};
 
 // =====================
-// DATABASE FUNCTIONS
+// SAFE HELPERS
+// =====================
+const safeEmail = (email) =>
+  typeof email === "string" ? email.toLowerCase().trim() : "";
+
+const safeFindUser = (db, email) => {
+  return db.users.find(
+    (u) => u?.email && typeof u.email === "string" && u.email.toLowerCase() === email
+  );
+};
+
+// =====================
+// DATABASE
 // =====================
 function readDB() {
-    try {
-        if (!fs.existsSync(DB_FILE)) {
-            const defaultData = { users: [], cart: [] };
-            fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2));
-            return defaultData;
-        }
-        return JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
-    } catch {
-        return { users: [], cart: [] };
+  try {
+    if (!fs.existsSync(DB_FILE)) {
+      const defaultData = { users: [], cart: [] };
+      fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2));
+      return defaultData;
     }
+    return JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
+  } catch {
+    return { users: [], cart: [] };
+  }
 }
 
 function writeDB(data) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
 }
 
 function getNextId(arr) {
-    return arr.length ? Math.max(...arr.map(i => i.id)) + 1 : 1;
+  return arr.length ? Math.max(...arr.map((i) => i.id || 0)) + 1 : 1;
 }
 
 // =====================
 // STATIC FILES
 // =====================
 app.get(["/", "/index.html"], (req, res) => {
-    res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 app.use("/src", express.static(path.join(__dirname, "src")));
@@ -64,141 +76,156 @@ app.use(express.static(path.join(__dirname, "public"), { index: false }));
 // AUTH
 // =====================
 app.post("/signup", (req, res) => {
-    const { name, email, password } = req.body;
-    const db = readDB();
+  const { name, email, password } = req.body;
+  const db = readDB();
 
-    if (db.users.find(u => u.email === email)) {
-        return res.status(400).json({ message: "Email already exists!" });
-    }
+  const cleanEmail = safeEmail(email);
 
-    const newUser = { id: getNextId(db.users), name, email, password };
-    db.users.push(newUser);
-    writeDB(db);
+  if (!cleanEmail) {
+    return res.status(400).json({ message: "Invalid email" });
+  }
 
-    const { password: pw, ...safeUser } = newUser;
-    res.json(safeUser);
+  if (db.users.find((u) => u.email === cleanEmail)) {
+    return res.status(400).json({ message: "Email already exists!" });
+  }
+
+  const newUser = {
+    id: getNextId(db.users),
+    name,
+    email: cleanEmail,
+    password,
+  };
+
+  db.users.push(newUser);
+  writeDB(db);
+
+  const { password: pw, ...safeUser } = newUser;
+  res.json(safeUser);
 });
 
 app.post("/login", (req, res) => {
-    const { email, password } = req.body;
-    const db = readDB();
+  const { email, password } = req.body;
+  const db = readDB();
 
-    const user = db.users.find(u => u.email === email);
+  const cleanEmail = safeEmail(email);
+  const user = safeFindUser(db, cleanEmail);
 
-    if (!user) return res.status(401).json({ message: "Invalid credentials!" });
-    if (user.password !== password)
-        return res.status(401).json({ message: "Incorrect Password" });
+  if (!user) return res.status(401).json({ message: "Invalid credentials!" });
+  if (user.password !== password)
+    return res.status(401).json({ message: "Incorrect Password" });
 
-    const { password: pw, ...safeUser } = user;
-    res.json(safeUser);
+  const { password: pw, ...safeUser } = user;
+  res.json(safeUser);
 });
 
 // =====================
 // CART
 // =====================
 app.post("/add-to-cart", (req, res) => {
-    const { user_id, product_name, price, quantity, image } = req.body;
-    const db = readDB();
+  const { user_id, product_name, price, quantity, image } = req.body;
+  const db = readDB();
 
-    const userId = parseInt(user_id);
-    const existing = db.cart.find(
-        i => i.user_id === userId && i.product_name === product_name
-    );
+  const userId = parseInt(user_id);
 
-    if (existing) {
-        existing.quantity = Math.min(existing.quantity + quantity, 9);
-    } else {
-        db.cart.push({
-            id: getNextId(db.cart),
-            user_id: userId,
-            product_name,
-            price,
-            quantity,
-            image
-        });
-    }
+  const existing = db.cart.find(
+    (i) => i.user_id === userId && i.product_name === product_name
+  );
 
-    writeDB(db);
-    res.json({ message: "Added to cart" });
+  if (existing) {
+    existing.quantity = Math.min((existing.quantity || 0) + (quantity || 1), 9);
+  } else {
+    db.cart.push({
+      id: getNextId(db.cart),
+      user_id: userId,
+      product_name,
+      price,
+      quantity,
+      image,
+    });
+  }
+
+  writeDB(db);
+  res.json({ message: "Added to cart" });
 });
 
 app.get("/cart/:id", (req, res) => {
-    const db = readDB();
-    res.json(db.cart.filter(i => i.user_id == req.params.id));
+  const db = readDB();
+  res.json(db.cart.filter((i) => i.user_id == req.params.id));
 });
 
 // =====================
-// FORGOT PASSWORD (RESEND)
+// FORGOT PASSWORD (SAFE VERSION)
 // =====================
 app.post("/forgot-password", async (req, res) => {
-    const email = (req.body.email || "").toLowerCase().trim();
-    const db = readDB();
+  const db = readDB();
 
-    const user = db.users.find(u => u.email.toLowerCase() === email);
+  const email = safeEmail(req.body?.email);
+  if (!email) {
+    return res.status(400).json({ message: "Invalid email" });
+  }
 
-    if (!user) {
-        return res.json({ message: "If account exists, code sent." });
-    }
+  const user = safeFindUser(db, email);
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+  // security response (always same message)
+  if (!user) {
+    return res.json({ message: "If account exists, code sent." });
+  }
 
-    resetCodes[email] = {
-        code,
-        expires: Date.now() + 10 * 60 * 1000
-    };
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    try {
-        await resend.emails.send({
-            from: "Scentify <onboarding@resend.dev>",
-            to: email,
-            subject: "Password Reset Code",
-            html: `
-                <div style="font-family:Arial;padding:20px">
-                    <h2>Password Reset Code</h2>
-                    <h1 style="color:#e91e63">${code}</h1>
-                    <p>Expires in 10 minutes.</p>
-                </div>
-            `
-        });
+  resetCodes[email] = {
+    code,
+    expires: Date.now() + 10 * 60 * 1000,
+  };
 
-        res.json({ message: "Reset code sent!" });
+  try {
+    await resend.emails.send({
+      from: "Scentify <onboarding@resend.dev>",
+      to: email,
+      subject: "Password Reset Code",
+      html: `<h1>${code}</h1><p>Expires in 10 minutes</p>`,
+    });
 
-    } catch (err) {
-        console.error("Email error:", err);
-        res.status(500).json({ message: "Email failed." });
-    }
+    res.json({ message: "Reset code sent!" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Email failed." });
+  }
 });
 
 // =====================
 // RESET PASSWORD
 // =====================
 app.post("/reset-password", (req, res) => {
-    const { email, code, newPassword } = req.body;
-    const reset = resetCodes[email];
+  const email = safeEmail(req.body?.email);
+  const { code, newPassword } = req.body;
 
-    if (!reset || reset.code !== code || Date.now() > reset.expires) {
-        return res.status(400).json({ message: "Invalid/expired code" });
-    }
+  const reset = resetCodes[email];
 
-    const db = readDB();
-    const user = db.users.find(u => u.email === email);
+  if (!reset || reset.code !== code || Date.now() > reset.expires) {
+    return res.status(400).json({ message: "Invalid/expired code" });
+  }
 
-    if (!user) {
-        return res.status(404).json({ message: "User not found" });
-    }
+  const db = readDB();
+  const user = safeFindUser(db, email);
 
-    user.password = newPassword;
-    writeDB(db);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
 
-    delete resetCodes[email];
+  user.password = newPassword;
+  writeDB(db);
 
-    res.json({ message: "Password updated!" });
+  delete resetCodes[email];
+
+  res.json({ message: "Password updated!" });
 });
 
 // =====================
 // START SERVER
 // =====================
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-    console.log("🚀 Server running on port " + PORT);
+  console.log("🚀 Server running on port " + PORT);
 });
